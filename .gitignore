@@ -8,3 +8,4 @@ build-tmp/
 Makefile
 debug.txt
 .ycm_extra_conf.pyc
+assets/
