@@ -8,19 +8,18 @@
 // Joystick Pins (potentiometer Analog, switch digital)
 #define PIN_JOYSTICK_X  A0
 #define PIN_JOYSTICK_Y  A1
-#define PIN_JOYSTICK_SW 2
+#define PIN_JOYSTICK_SW D2
 
 // Sharp Memory Display Pins
-#define PIN_DISP_SCK    13
-#define PIN_DISP_MOSI   11
-#define PIN_DISP_CS     10
+#define SHARP_SCK  D13
+#define SHARP_MOSI D11
+#define SHARP_SS   D10
 
 // Ultrasonic Sensor
-#define PIN_ULTRA_TRIG  7
-#define PIN_ULTRA_ECHO  6
+#define PIN_ULTRA_TRIG  D7
+#define PIN_ULTRA_ECHO  D6
 
 //notification LED
-#define PIN_LED 4
-
+#define PIN_LED D4
 
 #endif

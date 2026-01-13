@@ -1,11 +1,14 @@
 #include <aWOT.h>
 #include <WiFiS3.h>
 #include "secrets.h"
-#include <LiquidCrystal_I2C.h>
+//#include <LiquidCrystal_I2C.h>
 #include "config.h"
 #include "InputHandler.h"
 #include "MazeDisplay.h"
-#include <Adafruit_GFX.h>
+
+
+bool isNewMaze = true; 
+
 
 WiFiServer server(80);
 char ssid[] = SECRET_SSID;
@@ -21,6 +24,8 @@ void setup() {
 // END CODE FOR SERIAL INIT
 
 //INSERT LATER 
+
+  init_inputs();
 
 //CODE FOR WIFI INIT
   WiFi.begin(ssid, pass);
@@ -41,8 +46,15 @@ void setup() {
   Serial.println(WiFi.localIP());
 //END CODE FOR WIFI INIT
 
+
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+
+  manage_LED(true);
+  // delay(10000);
+  // init_maze(24,3);
+  // generate_maze();
+  // draw_maze_sharp();
 }

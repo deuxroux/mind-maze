@@ -7,7 +7,9 @@ int get_xDirection();
 int get_yDirection();
 bool button_pressed();
 
-long getDistance();
+int get_distance();
+
+void manage_LED(bool isNewMaze);
 
 
 #endif
