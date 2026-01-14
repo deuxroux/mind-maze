@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindMaze Clinical Dashboard</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <h1>MindMaze Clinical Dashboard</h1>
+
+    <p>Welcome to the MindMaze Clinical Dashboard. View patient performance history and send new mazes to patients.</p>
+
+    <h2>Patient Overview</h2>
+    <table>
+        <tr>
+        <th>patient id</th>
+        <th>Patient</th>
+        <th>Maze Status</th>
+        <th>Pending?</th>
+        <th>Last Completed</th>
+        </tr>
+        {% for id, p in patients.items() %}
+            {% set status = maze_state.get(id, {}) %}
+        <tr>
+            <td>
+              <strong>{{ id }}</strong><br>
+            </td>
+            <td>
+              {{ p.get('first_name','') }} {{ p.get('last_name','') }}
+            </td>
+      
+              <td>{{ status.get("status", "—") }}</td>
+              <td>{{ "Yes" if status.get("pending") else "No" }}</td>      
+              <td>
+                {{ status.get("completed_at", "—") }}<br>
+                <small>{{ status.get("completed_result_id", "") }}</small>
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+    
+    <h2>Send New Maze</h2>
+    <form id="sendMazeForm" action="/api/get_maze" method="POST">
+        <label for="patient_id">Patient ID:</label>
+        <input type="text" id="patient_id" name="patient_id" required>
+        <button type="submit">Send New Maze</button>
+    </form>
+</body>
+</html>
