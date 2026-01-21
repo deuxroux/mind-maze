@@ -15,20 +15,13 @@ def get_new_id(prefix):
     return f"{prefix}-{int(time.time()*1000)}" #  example result-1705254321347
 
 #functions to save and get data
-def save_result(data):
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r') as f:
-            records = json.load(f)
-    else:
-        records = [] #init new array if file doesn't exist
-    
-    records.append(data)
-    
-    # save back to file
-    with open(DATA_FILE, 'w') as f:
-        json.dump(records, f, indent=4)
+def save_db(dataUpdate):
+    with open(DATA_FILE, "w") as f:
+        json.dump(dataUpdate, f)
 
 def load_db():
+    if not os.path.exists(DATA_FILE):
+        return {"metadata": {}, "patients": {}, "devices": {}, "maze_state": {}, "results": [], "alerts": []}
     with open(DATA_FILE, "r") as f:
         return json.load(f)
 
@@ -50,14 +43,43 @@ def dashboard():
 @app.route('/api/upload_result', methods=['POST'])
 def upload_result():
     # Receive JSON and save
-    content = request.json 
-    print(f"Received from ESP: {content}")
+    payload = request.get_json(force= True) or {}
+    patient_id = payload.get("patient_id") #assumes we have this field uploaded
+    completed_result_id= get_new_id();
+    active_maze_id = payload.get("active_maze_id")
+    print(f"Received from ESP: {payload}")
     
     #expected format : {"patient_id": 1, "date": "2026-01-14", "time_taken": 45, "status": "success", "notification_status": "awaiting physician alert"}
-    save_result(content)
+    db = load_db()
+    ms = db.setdefault("maze_state", {}).setdefault(patient_id, {
+        "patient_id": patient_id,
+        "status": "idle",
+        "pending": False,
+        "active_maze_id": None,
+        "requested_at": None,
+        "completed_result_id": None,
+        "completed_at": None,
+        "acked_result_id": None,
+        "acked_at": None
+    })
+
+    ms["status"] = "completed"
+    ms["pending"] = True
+    ms["active_maze_id"] = active_maze_id
+    ms["completed_result_id"] = completed_result_id
+    ms["completed_at"] = iso_timestamp()
+
+    #  append to results log
+    db.setdefault("results", []).append({
+        "result_id": completed_result_id,
+        "patient_id": patient_id,
+        "active_maze_id": active_maze_id,
+        "completed_at": ms["completed_at"],
+        "source": "web_dummy"
+    })
     
     # respond with JSON acknowledgement
-    return jsonify({"status": "received", "message": "Data saved successfully!"}), 200
+    return jsonify({"received": True, "maze_state": ms}), 200
 
 # Requirement: Broker new mazes [cite: 183]
 @app.route('/api/get_maze', methods=['GET'])
@@ -67,3 +89,12 @@ def get_maze():
 if __name__ == '__main__':
     # Host='0.0.0.0' allows the ESP microcontroller access on local networks
     app.run(host='0.0.0.0', port=5050, debug=True)
+
+
+@app.route("/api/maze_state/<patient_id>", methods=["GET"])
+def get_maze_state(patient_id):
+    db = load_db()
+    ms = db.get("maze_state", {}).get(patient_id)
+    if not ms:
+        return jsonify({"error": "unknown patient"}), 404
+    return jsonify(ms), 200
