@@ -67,8 +67,6 @@ int get_dist_and_notify(){
 
   distance = (duration *0.034)/2;
 
-  Serial.print(distance);
-  Serial.println("cm away");
   manage_LED(distance);
   return distance;
 }

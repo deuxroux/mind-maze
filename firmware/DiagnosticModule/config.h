@@ -22,4 +22,10 @@
 //notification LED
 #define PIN_LED D4
 
+#define NODE_IP 192,168,86,20 //diagnostic mod will have 20
+#define PEER_IP 192,168,86,21 //monitoring will have 21
+#define GATEWAY_IP 192,168,86,1
+#define SUBNET_IP 255,255,255,0
+#define DNS_IP 8,8,8,8
+
 #endif

@@ -76,8 +76,6 @@ int get_distance(){
 
   distance = (duration *0.034)/2;
 
-  Serial.print(distance);
-  Serial.println("cm away");
   return distance;
 }
 
