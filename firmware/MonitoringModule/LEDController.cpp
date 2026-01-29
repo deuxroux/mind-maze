@@ -32,7 +32,7 @@ void manage_LED(int distance){
     analogWrite(GREEN_LED_PIN, 255);
     delay(100);
     //TURN SCREEN ON 
-    Serial.println("Screen ON!!");
+    //Serial.println("Screen ON!!");
   }else if (distance > DIST_THRESHOLD){
     //don't turn screen on, but slow blink the LED
     analogWrite(BLUE_LED_PIN, 255);
