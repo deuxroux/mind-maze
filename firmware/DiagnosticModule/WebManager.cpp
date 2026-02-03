@@ -16,15 +16,22 @@ R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-  <title> Patient Maze Diagnostic Device Module Dashboard</title>
+  <title> Patient's Diagnostic Maze Device Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: sans-serif; }
   </style>
 </head>
 <body>
-  <h1>Diagnostic Module Dashboard</h1>
+  <h1>Patient's Diagnostic Maze Device Dashboard</h1>
   <div id="status">LOADING</div>
+
+  <div>
+  <h2>API endpoints</h2>
+  <a href="/api/send">Send JSON (result) to physician monitoring module</a>
+  <br>
+  <a href="/api/pull">Receive JSON (maze) from physician monitoring module</a>
+  </div>
 </body>
 </html>
 )rawliteral";

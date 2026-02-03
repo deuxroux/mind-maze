@@ -3,7 +3,7 @@
 
 void init_LED_controller();
 
-int get_dist_and_notify();
+void get_dist_and_notify();
 
 bool button_pressed();
 

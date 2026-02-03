@@ -4,8 +4,9 @@
 
 WiFiServer server(80);
 awot::Application app;
-static StaticJsonDocument<512> inbox; //message for this module
+static StaticJsonDocument<512> inbox; //message for this module-- a one message inbox. 
 static bool inboxHasMessage = false;
+bool inboxUnread = false;
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
@@ -17,15 +18,27 @@ R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-  <title> Monitoring Module Dashboard</title>
+  <title> Physician's Monitoring Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: sans-serif; }
   </style>
 </head>
 <body>
-  <h1>Physician Monitoring Module Dashboard</h1>
+  <h1>Physician's Monitoring Dashboard</h1>
   <div id="status">LOADING</div>
+<div>
+  <h2>Actions</h2>
+  <a href="/api/request_maze">Request NEW maze on patient device</a>
+</div>
+
+<div>
+  <h2>Debug</h2>
+  <a href="/api/send">Send test JSON to patient device</a><br>
+  <a href="/api/pull">Read this module's inbox</a><br>
+  <a href="/api/ack"> Clear this module's inbox</a>
+</div>
+
 </body>
 </html>
 )rawliteral";
@@ -47,6 +60,7 @@ void init_webapp(){
   app.post("/api/push", push_message);
   app.get("/api/pull", pull_message);
   app.get("/api/send", send_test); //test route-- can comment out later. 
+  app.get("/api/ack", ack_message);
 
 
   server.begin();
@@ -117,6 +131,8 @@ void push_message(awot::Request &req, awot::Response &res){
   }
 
   inboxHasMessage = true;
+  inboxUnread = true;
+
   reply["ok"] = true;
   reply["storedBytes"] = measureJson(inbox); //check length of message for safety checks
 
@@ -126,27 +142,37 @@ void push_message(awot::Request &req, awot::Response &res){
 }
 
 void pull_message(awot::Request &req, awot::Response &res){
+  (void) req;
   // Return inbox and clear it
   Serial.println("[PULL] handler hit for physician mod");
 
   StaticJsonDocument<1024> reply;
   reply["ok"] = true;
+  reply["empty"] = !inboxHasMessage;
+  reply["unread"] = inboxUnread;
 
-  //if empty, return. otherwise read the message. 
-  if (!inboxHasMessage) {
-    reply["empty"] = true;
+  if(!inboxHasMessage){
     reply["message"] = nullptr;
-    json_reply(res,200, reply);
-    return;
+  }else {
+    JsonVariant m = reply.createNestedObject("message");
+    m.set(inbox.as<JsonVariant>());
   }
-  reply["empty"] = false;
+  Serial.println(!inboxHasMessage ? "[PULL] empty" : "[PULL] message in inbox");
 
-  JsonObject msg = reply.createNestedObject("message"); //create message object in the reply object to read
-  msg.set(inbox.as<JsonObjectConst>()); //set the message here as the inbox contents. 
+  json_reply(res, 200, reply);
+}
 
-  inbox.clear(); //clear inbox
+void ack_message(awot::Request &req, awot::Response &res) {
+  (void)req;
+
+  inbox.clear();
   inboxHasMessage = false;
-  Serial.println(inboxHasMessage ? "[PULL] had message" : "[PULL] empty");
+  inboxUnread = false; //mark read
+
+  StaticJsonDocument<256> reply;
+  reply["ok"] = true;
+  reply["empty"] = true;
+  reply["unread"] = inboxUnread;
   json_reply(res, 200, reply);
 }
 
@@ -184,10 +210,13 @@ bool post_json_to_peer(const IPAddress &peer, uint16_t port, const char *path, c
   c.stop();
 
   //return true if there is a connection
-  return statusLine.startsWith("HTTP/1.1 200");
+  bool ok200 = statusLine.startsWith("HTTP/1.1 200");
+
+  return ok200;
+
 }
 
-
+//route to just test functionality
 void send_test(awot::Request &req, awot::Response &res){
   (void)req; //may need to silence compiler...
 
@@ -212,4 +241,19 @@ void send_test(awot::Request &req, awot::Response &res){
 
   json_reply(res, ok ? 200:500, reply); //if ok was bad, send a bad reply via 500 status code
 }
+
+bool pull_local_message(JsonDocument &outMsg, bool &outEmpty) {
+  outMsg.clear();
+
+  if (!inboxHasMessage) {
+    outEmpty = true;
+    return true;
+  }
+  outMsg.set(inbox);
+
+  outEmpty = false;
+  return true;
+}
+
+
 

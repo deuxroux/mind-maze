@@ -5,7 +5,6 @@
 int distance = 0; 
 long duration = 0;
 
-
 void init_LED_controller(){
 
   pinMode(RED_LED_PIN, OUTPUT);
@@ -18,7 +17,6 @@ void init_LED_controller(){
 
   pinMode(PIN_ULTRA_TRIG, OUTPUT);
   pinMode(PIN_ULTRA_ECHO, INPUT);
-
 }
 
 void manage_LED(int distance){
@@ -50,9 +48,7 @@ void manage_LED(int distance){
   }
 }
 
-
-int get_dist_and_notify(){
-
+void get_dist_and_notify(){
   //reset trig
   digitalWrite(PIN_ULTRA_TRIG, LOW);
   delayMicroseconds(2);
@@ -63,10 +59,7 @@ int get_dist_and_notify(){
   //read echo pin return sound wave travel time in us
   duration=pulseIn(PIN_ULTRA_ECHO,HIGH);
 
-  // calculate distance in cm and print
-
+  // calculate distance in cm. then manage led state
   distance = (duration *0.034)/2;
-
   manage_LED(distance);
-  return distance;
 }

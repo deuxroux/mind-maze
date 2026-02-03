@@ -5,6 +5,6 @@
 
 void init_screen();
 
-void update_screen(const String& message);
+void update_screen(const String& line1, const String& line2);
 
 #endif
