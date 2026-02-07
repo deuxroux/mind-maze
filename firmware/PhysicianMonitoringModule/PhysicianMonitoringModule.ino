@@ -5,10 +5,9 @@
 #include "WebManager.h"
 
 //init time and polling variables
-const uint32_t PULL_INTERVAL_MS=5000; //check-in every 5s
+const uint32_t ACK_DEBOUNCE_MS = 30; //TODO: prevent frequent polling of ack button
+const uint32_t PULL_INTERVAL_MS=5000; //check-in every 5s for lcd screen
 
-uint32_t lastPull = 0;
-bool haveMsg = false;
 
 void setup() {
   //CODE FOR SERIAL INITIALIZATION
@@ -23,40 +22,46 @@ void setup() {
 //INSERT LATER 
   init_LED_controller();
   init_screen();
-
   init_webapp();
+  pinMode(ACK_BUTTON_PIN, INPUT);
 }
 
 void loop() {
   serve_http();
   get_dist_and_notify();
-
   poll_peer();
+  handle_ack_button();
 }
 
 void JSON_to_LCD(const JsonDocument &msg){
   String type = msg["type"] | "msg"; //default if nothing exists
 
   if(type == "maze_result"){
+    String status = msg["status"] | "";
     bool success = msg["success"] | false;
-    uint32_t dur = msg["duration_ms"] | 0; 
+    uint32_t dur = msg["duration_ms"] | 0; //0 means incomplete
     const char* mazeId = msg["maze_id"] | ""; 
 
     String l1;
     String l2;
     //TODO: Update to manage the "time" requirement
-    if(success){
-      l1 = "Maze: OK";
-    } else{
+    if (status == "incomplete") {
+      l1 = "Maze: INCOMP";
+    } else if (status == "failure" || (!status.length() && !success)) {
       l1 = "Maze: FAIL";
+    } else {
+      l1 = "Maze: OK";
     }
     if (dur > 0){
       l2 = "t=" + fmtSeconds(dur);
+    }else if (status == "incomplete"){
+      l2 = "t=?.?s";
     }else{
       l2 = "Error! t= ?";
     }
     //todo: add maze id? tbd if mportant here.
     update_screen(l1,l2);
+    mazeAwaiting = false;
     return;
   }
   //test payload case
@@ -78,38 +83,27 @@ String fmtSeconds(uint32_t ms) {
 }
 
 void poll_peer(){
-  static bool showedDefault = false;
-
+  uint32_t lastPull = 0;
+  bool empty = true;
   if (millis() - lastPull >= PULL_INTERVAL_MS) {
     lastPull = millis();
   
-    bool empty = true;
     StaticJsonDocument<512> msg;
-
     bool ok = pull_local_message(msg, empty);
-    // Serial.print("OK: "); Serial.println(ok);
-    // Serial.print("EMPTY: "); Serial.println(empty);
-    //if(!ok) Serial.println("ERROR in pulling message");
-    if (!empty && inboxUnread) {
-      haveMsg = true;
+    if (!empty) {
       JSON_to_LCD(msg);
-      inboxUnread = false;
-      showedDefault = false;
-      //Serial.println("[PULL] new message rendered to LCD");
-    } 
-
-    if(empty && haveMsg){
-      haveMsg = false;  //clear flag
-      update_screen("IDLE", "No Maze Active");
-      showedDefault = true;
+      Serial.println("[PULL] new message rendered to LCD");
       return;
+    } else {
+      update_screen("AWAITING", "No Result Yet");
     }
   }
+}
 
-  // show something when no message yet and default has been shown
-  if (!haveMsg && !showedDefault) {
-    //set default text until maze updated
-    update_screen("IDLE", "No Maze Active");
-    showedDefault = true; 
+void handle_ack_button() {
+  int reading = digitalRead(ACK_BUTTON_PIN);
+  if (!reading) {
+    Serial.println("Ack button pressed");
+    clear_inbox_state();
   }
 }

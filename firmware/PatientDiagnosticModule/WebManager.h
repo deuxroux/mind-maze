@@ -16,8 +16,10 @@ void serve_http();
 //declared routes--  & memory refs for efficiency
 void get_dashboard(awot::Request &req, awot::Response &res);
 void send_test(awot::Request &req, awot::Response &res);
+void send_maze_result(awot::Request &req, awot::Response &res);
 void push_message(awot::Request &req, awot::Response &res);  //  /api/push post P2P connection
 void pull_message(awot::Request &req, awot::Response &res);  //  /api/pull get P2P connection
+void get_status(awot::Request &req, awot::Response &res);    //  /api/status get maze status
 
 //helper to post to peer
 bool post_json_to_peer(const IPAddress &peer, uint16_t port, const char *path, const String &body);

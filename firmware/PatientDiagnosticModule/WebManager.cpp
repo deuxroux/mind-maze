@@ -1,45 +1,66 @@
 #include "WebManager.h"
 #include "config.h"
 #include "secrets.h"
+#include "MazeDisplay.h"
 
 WiFiServer server(80);
 awot::Application app;
-static StaticJsonDocument<512> inbox; //message for this module-- a one message inbox. 
+static StaticJsonDocument<512> inbox; //message for this module
 static bool inboxHasMessage = false;
-bool inboxUnread = false;
+static bool mazeActive = false;
+
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
-
-
 
 const char DASHBOARD_HTML[] PROGMEM=
 R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-  <title> Physician's Monitoring Dashboard</title>
+  <title> Patient's Diagnostic Maze Device Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: sans-serif; }
   </style>
 </head>
 <body>
-  <h1>Physician's Monitoring Dashboard</h1>
-  <div id="status">LOADING</div>
-<div>
-  <h2>Actions</h2>
-  <a href="/api/request_maze">Request NEW maze on patient device</a>
-</div>
+  <h1>Patient's Diagnostic Maze Device Dashboard</h1>
+  <div id="status">No Maze Active</div>
 
-<div>
-  <h2>Debug</h2>
-  <a href="/api/send">Send test JSON to patient device</a><br>
-  <a href="/api/pull">Read this module's inbox</a><br>
-  <a href="/api/ack"> Clear this module's inbox</a>
-</div>
-
+  <div>
+  <h2>API endpoints</h2>
+  <a href="/api/send">Send JSON (TEST) to physician monitoring module</a>
+  <br>
+  <a href="/api/send_result">Send Maze Result to physician monitoring module</a>
+  <br>
+  <a href="/api/status">Get maze status</a>
+  <br>
+  <a href="/api/pull">Check inbox (json) from physician monitoring module</a>
+  <br>
+  <a href="/api/push">receive maze request</a>
+  </div>
 </body>
+<script>
+  const statusEl = document.getElementById("status");
+
+  async function refreshStatus() {
+    try {
+      const res = await fetch("/api/status");
+      const data = await res.json();
+      if (data && data.ok) {
+        statusEl.textContent = data.mazeActive ? "Maze Active" : "No Maze Active";
+      } else {
+        statusEl.textContent = "Status Error";
+      }
+    } catch (e) {
+      statusEl.textContent = "Status Error";
+    }
+  }
+
+  refreshStatus();
+  setInterval(refreshStatus, 2000);
+</script>
 </html>
 )rawliteral";
 
@@ -50,35 +71,21 @@ void json_reply(awot::Response &res, int code, const JsonDocument &doc) {
   serializeJson(doc, res);                       //serialize and send
 }
 
-//web and route management
-
-void init_webapp(){
-  //app routes
-  app.get("/", get_dashboard);
-  
-  // P2P routes
-  app.post("/api/push", push_message);
-  app.get("/api/pull", pull_message);
-  app.get("/api/send", send_test); //test route-- can comment out later. 
-  app.get("/api/ack", ack_message);
-
-
-  server.begin();
-  Serial.println("[HTTP] Listening on :80");
-}
+//web init and routes
 
 void init_wifi(){
   //CODE FOR WIFI INIT
   WiFi.disconnect();
+
   IPAddress localIP(NODE_IP);
   IPAddress dns(DNS_IP);
   IPAddress gateway(GATEWAY_IP);
   IPAddress subnet(SUBNET_IP);
 
   WiFi.config(localIP, dns, gateway, subnet);
+
   WiFi.begin(ssid, pass);
   delay(1000);
-
   //check if module exists
   if (WiFi.status() == WL_NO_MODULE) {
     Serial.println("[ERROR] WiFiS3 module not detected.");
@@ -90,26 +97,43 @@ void init_wifi(){
     delay(500);
     Serial.println("Waiting to connect...");
   }
-  Serial.print("[WiFi] Monitoring Physician Module Connected! IP Address: ");
+
+  Serial.print("[WiFi] Diagnostic MAZE Module Connected! IP Address: ");
   Serial.println(WiFi.localIP());
 //END CODE FOR WIFI INIT
 }
 
+void init_webapp(){
+  //app routes
+  app.get("/", get_dashboard);
+
+  // P2P routes
+  app.post("/api/push", push_message);
+  app.get("/api/pull", pull_message);
+  app.get("/api/send", send_test); //test route-- can comment out later. 
+  app.get("/api/send_result", send_maze_result);
+  app.get("/api/status", get_status);
+
+  server.begin();
+  Serial.println("[HTTP] Listening on :80");
+}
 
 void serve_http(){
   //Serve HTTP LOGIC REPEATEDLY
   WiFiClient client = server.available();
-  if (client) {
-    client.setTimeout(1500);
-    app.process(&client); 
-    client.stop();
-  }
+
+  if(!client) return;
+ 
+  client.setTimeout(1500);
+  app.process(&client); 
+  client.stop();
+
 //END Http logic
 }
 
 //p2p route functions
 void push_message(awot::Request &req, awot::Response &res){
-  Serial.println("[PUSH] handler hit for physician mod");
+  Serial.println("[PUSH] handler hit for maze mod");
 
   //clear inbox just in case not cleared already
   inbox.clear();
@@ -123,6 +147,7 @@ void push_message(awot::Request &req, awot::Response &res){
 
   if (err) {
     inboxHasMessage= false; 
+    mazeActive = false; //safety-- reset maze active flag. 
     reply["ok"] = false;
     reply["error"] = "BAD_JSON";
     reply["detail"] = err.c_str();
@@ -131,48 +156,43 @@ void push_message(awot::Request &req, awot::Response &res){
   }
 
   inboxHasMessage = true;
-  inboxUnread = true;
-
   reply["ok"] = true;
   reply["storedBytes"] = measureJson(inbox); //check length of message for safety checks
 
+  String type = inbox["type"] | ""; //if no type, default empty string
+  if (type == "request_maze" || type == "new_maze") {
+    //do something
+    mazeActive = true;
+    Serial.println("[MAZE] new maze generated from request");
+  }
+
   //send json
-  Serial.println(inboxHasMessage ? "[PUSH] stored" : "[PUSH] not stored");
   json_reply(res, 200, reply);
 }
 
 void pull_message(awot::Request &req, awot::Response &res){
-  (void) req;
   // Return inbox and clear it
-  Serial.println("[PULL] handler hit for physician mod");
+  Serial.println("[PULL] handler hit for maze mod");
 
   StaticJsonDocument<1024> reply;
   reply["ok"] = true;
-  reply["empty"] = !inboxHasMessage;
-  reply["unread"] = inboxUnread;
 
-  if(!inboxHasMessage){
+  //if empty, return. otherwise read the message. 
+  if (!inboxHasMessage) {
+    reply["empty"] = true;
     reply["message"] = nullptr;
-  }else {
-    JsonVariant m = reply.createNestedObject("message");
-    m.set(inbox.as<JsonVariant>());
+    json_reply(res,200, reply);
+    return;
   }
-  Serial.println(!inboxHasMessage ? "[PULL] empty" : "[PULL] message in inbox");
+  reply["empty"] = false;
 
-  json_reply(res, 200, reply);
-}
+  JsonObject msg = reply.createNestedObject("message"); //create message object in the reply object to read
+  msg.set(inbox.as<JsonObjectConst>()); //set the message here as the inbox contents. 
 
-void ack_message(awot::Request &req, awot::Response &res) {
-  (void)req;
-
-  inbox.clear();
+  inbox.clear(); //clear inbox
   inboxHasMessage = false;
-  inboxUnread = false; //mark read
-
-  StaticJsonDocument<256> reply;
-  reply["ok"] = true;
-  reply["empty"] = true;
-  reply["unread"] = inboxUnread;
+  mazeActive = false;
+  Serial.println(inboxHasMessage ? "[PULL] had message" : "[PULL] empty");
   json_reply(res, 200, reply);
 }
 
@@ -180,6 +200,15 @@ void ack_message(awot::Request &req, awot::Response &res) {
 void get_dashboard(awot::Request &req, awot::Response &res){
   res.set("Content-Type", "text/html");
   res.printP(DASHBOARD_HTML);
+}
+
+void get_status(awot::Request &req, awot::Response &res) {
+  (void)req;
+
+  StaticJsonDocument<128> reply;
+  reply["ok"] = true;
+  reply["mazeActive"] = mazeActive;
+  json_reply(res, 200, reply);
 }
 
 bool post_json_to_peer(const IPAddress &peer, uint16_t port, const char *path, const String &body){
@@ -207,16 +236,15 @@ bool post_json_to_peer(const IPAddress &peer, uint16_t port, const char *path, c
 
   String statusLine = c.readStringUntil('\n');  //go until escape char to get status for tcp buffer
   statusLine.trim(); //need to trim r char to keep http compliant
+  Serial.print("Peer status: ");
+  Serial.println(statusLine);
   c.stop();
 
   //return true if there is a connection
-  bool ok200 = statusLine.startsWith("HTTP/1.1 200");
-
-  return ok200;
-
+  return statusLine.startsWith("HTTP/1.1 200");
 }
 
-//route to just test functionality
+
 void send_test(awot::Request &req, awot::Response &res){
   (void)req; //may need to silence compiler...
 
@@ -226,7 +254,7 @@ void send_test(awot::Request &req, awot::Response &res){
   msg["type"] = "test";
   msg["from"] = WiFi.localIP().toString();
   msg["millis"] = (unsigned long)millis(); // track time
-  msg["note"] = "hello diag maze module this is physician monitoring mod";
+  msg["note"] = "hello physician monitoring module this is diag maze mod";
 
   String body;
   serializeJson(msg, body);
@@ -242,18 +270,29 @@ void send_test(awot::Request &req, awot::Response &res){
   json_reply(res, ok ? 200:500, reply); //if ok was bad, send a bad reply via 500 status code
 }
 
-bool pull_local_message(JsonDocument &outMsg, bool &outEmpty) {
-  outMsg.clear();
+void send_maze_result(awot::Request &req, awot::Response &res){
+  (void)req;
 
-  if (!inboxHasMessage) {
-    outEmpty = true;
-    return true;
+  StaticJsonDocument<256> msg;
+
+  //placeholder result payload
+  msg["type"] = "maze_result";
+  msg["status"] = "success"; //success/fail/incomplete
+  msg["duration_ms"] = 10000; //stand-in completion time
+
+  String body;
+  serializeJson(msg, body);
+
+  IPAddress peer(PEER_IP);
+  bool ok = post_json_to_peer(peer, 80, "/api/push", body);
+  if (ok) {
+    mazeActive = false;
   }
-  outMsg.set(inbox);
 
-  outEmpty = false;
-  return true;
+  StaticJsonDocument<256> reply;
+  reply["ok"] = ok;
+  reply["sentBytes"] = body.length();
+  reply["peer"] = peer.toString();
+
+  json_reply(res, ok ? 200:500, reply);
 }
-
-
-

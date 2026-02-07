@@ -24,25 +24,11 @@ int pitch = pathW + wallW;
 #define GETX(i)  ((i) % sizex)
 #define GETY(i)  ((i) / sizex)
 
-// void setup() {
-// //CODE FOR SERIAL INITIALIZATION
-//   Serial.begin(9600);
-//   //delay for our serial monitor...
-//   delay(1200);
-//   Serial.println("\n[BOOT] Starting up…");
-
-//   display.begin();
-//   display.clearDisplay();
-//   display.refresh();
-
-//   randomSeed(42);
-
-//   init_maze(24,3);
-//   generate_maze();
-//   draw_maze_sharp();
-
-//   Serial.println("Maze drawn.");
-// }
+void init_display(){
+  display.begin();
+  display.clearDisplay();
+  display.refresh();
+}
 
 
 
@@ -53,7 +39,7 @@ void init_maze(int cellSize, int wallWidth){
 
   uint32_t cells = (uint32_t)sizex * (uint32_t)sizey;
 
-  Serial.print("Maze grid: ");
+  Serial.print("[MAZE] Generating grid: ");
   Serial.print(sizex);
   Serial.print(" x ");
   Serial.println(sizey);
@@ -176,7 +162,7 @@ void draw_maze_sharp() {
   int x0 = (display.width()  - mazePixW) / 2;
   int y0 = (display.height() - mazePixH) / 2;
 
-  // optional draw an outer border...
+  // draw an outer border...
   // display.fillRect(x0, y0, mazePixW, wallW, BLACK);                      // top
   // display.fillRect(x0, y0 + mazePixH - wallW, mazePixW, wallW, BLACK);   // bottom
   // display.fillRect(x0, y0, wallW, mazePixH, BLACK);                      // left

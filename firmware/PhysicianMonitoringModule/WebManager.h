@@ -7,6 +7,7 @@
 
 extern const char DASHBOARD_HTML[] PROGMEM;
 extern bool inboxUnread;
+extern bool mazeAwaiting;
 
 void init_webapp();
 void init_wifi();
@@ -26,5 +27,6 @@ void request_new_maze(awot::Request &req, awot::Response &res);
 //helpers for peer to peer interpretation and json encoding
 bool post_json_to_peer(const IPAddress &peer, uint16_t port, const char *path, const String &body);
 bool pull_local_message(JsonDocument &outMsg, bool &outEmpty);
+void clear_inbox_state();
 
 #endif

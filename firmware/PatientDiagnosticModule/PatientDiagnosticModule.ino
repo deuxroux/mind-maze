@@ -16,6 +16,7 @@ void setup() {
 //INSERT LATER 
 
   init_inputs();
+  init_display();
   init_wifi();
   init_webapp();
 
@@ -23,11 +24,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-
   serve_http();
   manage_LED(true);
-  // delay(10000);
-  // init_maze(24,3);
-  // generate_maze();
-  // draw_maze_sharp();
+
 }

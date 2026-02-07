@@ -16,7 +16,8 @@
 #define PIN_ULTRA_TRIG  D7
 #define PIN_ULTRA_ECHO  D6
 
-//ack button pin?
+//ack button pin
+#define ACK_BUTTON_PIN D1
 
 constexpr int DIST_THRESHOLD = 60; //60cm away triggers screen and led speed
 
