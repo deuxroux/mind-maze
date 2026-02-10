@@ -5,6 +5,7 @@
 
 bool isNewMaze = true; 
 
+
 void setup() {
 //CODE FOR SERIAL INITIALIZATION
   Serial.begin(9600);
@@ -17,6 +18,7 @@ void setup() {
 
   init_inputs();
   init_display();
+  display_initial_maze();
   init_wifi();
   init_webapp();
 
@@ -27,4 +29,10 @@ void loop() {
   serve_http();
   manage_LED(true);
 
+}
+
+
+void display_initial_maze() {
+  init_maze(MAZE_DEFAULT_CELL_SIZE, MAZE_DEFAULT_WALL_WIDTH);
+  regenerate_maze(MAZE_DEFAULT_SEED);
 }

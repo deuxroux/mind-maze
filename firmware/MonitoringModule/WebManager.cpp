@@ -8,6 +8,7 @@ static StaticJsonDocument<512> inbox; //message for this module-- a one message 
 static bool inboxHasMessage = false;
 bool inboxUnread = false;
 bool mazeAwaiting = false;
+static uint32_t mazeSeedCounter = 0; //every new maze request increments this counter. 
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
@@ -282,6 +283,10 @@ void request_new_maze(awot::Request &req, awot::Response &res){
   msg["type"] = "request_maze";
   msg["from"] = WiFi.localIP().toString();
   msg["millis"] = (unsigned long)millis();
+
+  uint32_t seed = ++mazeSeedCounter; //increment seed counter-- use temporary variable for json object. 
+  if (seed == 0) seed = 1; //wrap around to 1 if overflow-- saw in Adafruit but i don't think this will ever happen. 
+  msg["maze_seed"] = seed;
 
   String body;
   serializeJson(msg, body);

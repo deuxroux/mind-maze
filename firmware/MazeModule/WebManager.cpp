@@ -9,6 +9,8 @@ static StaticJsonDocument<512> inbox; //message for this module
 static bool inboxHasMessage = false;
 static bool mazeActive = false;
 
+static void handle_incoming_maze_command(const JsonDocument &msg);
+
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
@@ -160,9 +162,8 @@ void push_message(awot::Request &req, awot::Response &res){
   reply["storedBytes"] = measureJson(inbox); //check length of message for safety checks
 
   String type = inbox["type"] | ""; //if no type, default empty string
-  if (type == "request_maze" || type == "new_maze") {
-    //do something
-    mazeActive = true;
+  if (type == "request_maze" || type == "new_maze" || type == "send_maze") {
+    handle_incoming_maze_command(inbox); //parse command and generate maze if suitabale. 
     Serial.println("[MAZE] new maze generated from request");
   }
 
@@ -295,4 +296,16 @@ void send_maze_result(awot::Request &req, awot::Response &res){
   reply["peer"] = peer.toString();
 
   json_reply(res, ok ? 200:500, reply);
+}
+
+static void handle_incoming_maze_command(const JsonDocument &msg) {
+  uint32_t seed = 0;
+  if (msg.containsKey("maze_seed")) {
+    seed = msg["maze_seed"].as<uint32_t>();
+  } else if (msg.containsKey("seed")) {
+    seed = msg["seed"].as<uint32_t>();
+  }
+  if (seed == 0) seed = micros();
+  regenerate_maze(seed);
+  mazeActive = true;
 }
