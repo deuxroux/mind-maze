@@ -2,13 +2,18 @@
 
 #ifndef CONFIG_H
 #define CONFIG_H
-
 // --- Diagnostic Module Pinouts ---
 
 // Joystick Pins (potentiometer Analog, switch digital)
 #define PIN_JOYSTICK_X  A0
 #define PIN_JOYSTICK_Y  A1
-#define PIN_JOYSTICK_SW D2
+#define PIN_JOYSTICK_SW A2
+constexpr int JOYSTICK_CENTER = 512;
+constexpr int DEADZONE = 40; //drift in the joystick-- will adjust to plus or minus deadzone. 
+constexpr int CURSOR_WIDTH=8;
+constexpr int CURSOR_HEIGHT=8;
+constexpr int MAX_STEP = 4; //4 pixel per frame for readability
+constexpr uint16_t FRAME_MS = 33;  // ~30 Hz refresh
 
 // Sharp Memory Display Pins
 #define SHARP_SCK  D13

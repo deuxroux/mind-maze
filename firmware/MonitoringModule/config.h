@@ -1,9 +1,14 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+
+//init time and polling variables
+constexpr uint32_t ACK_DEBOUNCE_MS = 30; //TODO: prevent frequent polling of ack button
+constexpr uint32_t PULL_INTERVAL_MS=5000; //check-in every 5s for lcd screen
+
 //--- Monitoring Mopdule Pinouts ---
 
-//LCD pins
+//LCD pins handled by i2c library
 
 
 //ARGB pins

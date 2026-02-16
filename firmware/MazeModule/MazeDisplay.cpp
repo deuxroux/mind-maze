@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "MazeDisplay.h"
 #include "config.h"
 #define BLACK 0
@@ -5,15 +6,35 @@
 
 Adafruit_SharpMem display(SHARP_SCK, SHARP_MOSI, SHARP_SS, 400, 240); //init the display
 
+static float cursorX = 0.0f;
+static float cursorY = 0.0f;
+static bool cursorVisible = false;
 
-//NOTE: Most of below is Adafruit's example code for e-paper Maze Generator.
-// VE has updated for SharpMem display and added QoL features for this application. 
+static bool hasEntryZone = false;
+static bool hasExitZone = false;
+static int entryZoneLeft = 0;
+static int entryZoneRight = 0;
+static int entryZoneTop = 0;
+static int entryZoneBottom = 0;
+static int exitZoneLeft = 0;
+static int exitZoneRight = 0;
+static int exitZoneTop = 0;
+static int exitZoneBottom = 0;
 
-//allocate max mem cap
-static const uint32_t MEM_MAX = 20000; 
+static int mazeLeftX = 0;
+static int mazeRightX = 0;
+static int mazeTopY = 0;
+static int mazeBottomY = 0;
+
+static bool hasEnteredMaze = false;
+static bool hasExitedMaze = false;
+static uint32_t mazeEnterMs = 0;
+static uint32_t mazeExitMs = 0;
+
+
+static const uint32_t MEM_MAX = 20000; //allocate max mem cap
 uint8_t*  maze     = nullptr; // per-cell wall flags
 uint16_t* mazepath = nullptr; 
-
 int entryX = -1;  // column index for top opening-- init to -1
 int exitX  = -1; 
 
@@ -33,7 +54,8 @@ void init_display(){
   display.refresh();
 }
 
-
+//NOTE: Much of below is from Adafruit's example code for e-paper Maze Generator.
+// VE has updated for SharpMem display and added QoL features for this application. 
 
 void init_maze(int cellSize, int wallWidth){
   
@@ -173,7 +195,11 @@ static inline void thickV(int x, int y, int t, int h, uint16_t color) {
   display.fillRect(x, y, t, h, color);
 }
 
+//END MAZE DISPLAy CODE FROM ADAFRUIT
+
+
 // Render maze walls to SharpMem
+//draw logic calls for display gfx library from Adafruit
 void draw_maze_sharp() {
   display.clearDisplay();
 
@@ -183,10 +209,10 @@ void draw_maze_sharp() {
   int fx = (display.width()  - frameW + 1) / 2;
   int fy = (display.height() - frameH + 1) / 2;
 
-  const int leftX   = fx;
-  const int topY    = fy;
-  const int rightX  = fx + sizex * pitch;
-  const int bottomY = fy + sizey * pitch;
+  mazeLeftX   = fx;
+  mazeTopY    = fy;
+  mazeRightX  = fx + sizex * pitch;
+  mazeBottomY = fy + sizey * pitch;
 
   // safety check-- only generate if exists
   const int safeEntry = (entryX >= 0 && entryX < sizex) ? entryX : -1;
@@ -196,35 +222,201 @@ void draw_maze_sharp() {
   //incl gap at entry at top/ compare against safety flags. 
   for (int x = 0; x < sizex; x++) {
     if (x == safeEntry) continue;
-    thickH(leftX + x * pitch, topY, pitch, wallW, BLACK);
+    int px = mazeLeftX + x * pitch;
+    thickH(px, mazeTopY, pitch, wallW, BLACK);
   }
 
   //bottom with gap
   for (int x = 0; x < sizex; x++) {
     if (x == safeExit) continue;
-    thickH(leftX + x * pitch, bottomY, pitch, wallW, BLACK);
+    int px = mazeLeftX + x * pitch;
+    thickH(px, mazeBottomY, pitch, wallW, BLACK);
   }
 
   // Left and right borders
-  thickV(leftX,  topY, wallW, sizey * pitch + wallW, BLACK);
-  thickV(rightX, topY, wallW, sizey * pitch + wallW, BLACK);
+  thickV(mazeLeftX, mazeTopY, wallW, sizey * pitch + wallW, BLACK);
+  thickV(mazeRightX, mazeTopY, wallW, sizey * pitch + wallW, BLACK);
 
   for (int y = 0; y < sizey; y++) {
-      for (int x = 0; x < sizex; x++) {
-        int i = y * sizex + x;
+    for (int x = 0; x < sizex; x++) {
+      int i = y * sizex + x;
 
-        int px = fx + x * pitch;
-        int py = fy + y * pitch;
+      int px = fx + x * pitch;
+      int py = fy + y * pitch;
 
-        if (y < sizey - 1 && (maze[i] & MAZE_WALL_BOTTOM)) {
-          display.fillRect(px, py + pitch, pitch + wallW, wallW, BLACK);
-        }
-        if (x < sizex - 1 && (maze[i] & MAZE_WALL_RIGHT)) {
-          display.fillRect(px + pitch, py, wallW, pitch + wallW, BLACK);
-        }
+      if (y < sizey - 1 && (maze[i] & MAZE_WALL_BOTTOM)) {
+        display.fillRect(px, py + pitch, pitch + wallW, wallW, BLACK);
+      }
+      if (x < sizex - 1 && (maze[i] & MAZE_WALL_RIGHT)) {
+        display.fillRect(px + pitch, py, wallW, pitch + wallW, BLACK);
       }
     }
+  }
+
+  int entryRowTop = fy + wallW;
+  int exitRowTop = fy + (sizey - 1) * pitch + wallW;
+
+  // entry/exit zones for boundary checking and timing
+  if (safeEntry >= 0) {
+    int px = fx + safeEntry * pitch + wallW;
+    entryZoneLeft = px;
+    entryZoneRight = px + pathW;
+    entryZoneTop = entryRowTop;
+    entryZoneBottom = entryRowTop + pathW;
+    hasEntryZone = true;
+  }else {
+    hasEntryZone = false;
+  }
+  if (safeExit >= 0) {
+    int px = fx + safeExit * pitch + wallW;
+    exitZoneLeft = px;
+    exitZoneRight = px + pathW;
+    exitZoneTop = exitRowTop;
+    exitZoneBottom = exitRowTop + pathW;
+    hasExitZone = true;
+  }else {
+    hasExitZone = false;
+  }
+
   display.refresh();
+}
+
+//check collision states
+static inline bool rects_overlap(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh) {
+  return !(ax + aw <= bx || ax >= bx + bw || ay + ah <= by || ay >= by + bh);
+}
+
+static inline int clamp_axis(int value, int lo, int hi) {
+  if (value < lo) return lo;
+  if (value > hi) return hi;
+  return value;
+}
+
+static bool cursor_hits_wall(int x, int y) {
+  const int safeEntry = (entryX >= 0 && entryX < sizex) ? entryX : -1;
+  const int safeExit  = (exitX  >= 0 && exitX  < sizex) ? exitX  : -1;
+
+  auto overlaps_wall = [&](int wx, int wy, int ww, int wh) {
+    return rects_overlap(x, y, CURSOR_WIDTH, CURSOR_HEIGHT, wx, wy, ww, wh);
+  };
+
+  for (int cx = 0; cx < sizex; cx++) {
+    int px = mazeLeftX + cx * pitch;
+    if (cx != safeEntry && overlaps_wall(px, mazeTopY, pitch, wallW)) {
+      return true;
+    }
+    if (cx != safeExit && overlaps_wall(px, mazeBottomY, pitch, wallW)) {
+      return true;
+    }
+  }
+
+  if (overlaps_wall(mazeLeftX, mazeTopY, wallW, sizey * pitch + wallW)) return true;
+  if (overlaps_wall(mazeRightX, mazeTopY, wallW, sizey * pitch + wallW)) return true;
+
+  for (int cy = 0; cy < sizey; cy++) {
+    int py = mazeTopY + cy * pitch;
+    for (int cx = 0; cx < sizex; cx++) {
+      int i = cy * sizex + cx;
+      int px = mazeLeftX + cx * pitch;
+      if ((maze[i] & MAZE_WALL_BOTTOM) && overlaps_wall(px, py + pitch, pitch + wallW, wallW)) {
+        return true;
+      }
+      if ((maze[i] & MAZE_WALL_RIGHT) && overlaps_wall(px + pitch, py, wallW, pitch + wallW)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static void draw_cursor(int x, int y) {
+  display.fillRect(x, y, CURSOR_WIDTH, CURSOR_HEIGHT, BLACK);
+}
+
+static void erase_cursor(int x, int y) {
+  display.fillRect(x, y, CURSOR_WIDTH, CURSOR_HEIGHT, WHITE);
+}
+
+static inline bool cursor_in_zone(int x, int y, int left, int right, int top, int bottom) {
+  return !(x + CURSOR_WIDTH <= left || x >= right || y + CURSOR_HEIGHT <= top || y >= bottom);
+}
+
+static void update_entry_exit_state(uint32_t now) {
+  if (hasEntryZone && !hasEnteredMaze &&
+      cursor_in_zone((int)cursorX, (int)cursorY, entryZoneLeft, entryZoneRight, entryZoneTop, entryZoneBottom)) {
+    hasEnteredMaze = true;
+    mazeEnterMs = now;
+  }
+  if (hasExitZone && hasEnteredMaze && !hasExitedMaze &&
+      cursor_in_zone((int)cursorX, (int)cursorY, exitZoneLeft, exitZoneRight, exitZoneTop, exitZoneBottom)) {
+    hasExitedMaze = true;
+    mazeExitMs = now;
+  }
+}
+
+void reset_cursor_position() {
+  if (cursorVisible) {
+    erase_cursor((int)cursorX, (int)cursorY);
+  }
+  cursorVisible = false;
+  hasEnteredMaze = false;
+  hasExitedMaze = false;
+  mazeEnterMs = 0;
+  mazeExitMs = 0;
+
+  int startX = (display.width() - CURSOR_WIDTH) / 2;
+  int startY = 0;
+  if (hasEntryZone) {
+    int zoneWidth = entryZoneRight - entryZoneLeft;
+    startX = entryZoneLeft + (zoneWidth - CURSOR_WIDTH) / 2;
+    startY = entryZoneTop - CURSOR_HEIGHT - 2;
+  }
+
+  startX = clamp_axis(startX, 0, display.width() - CURSOR_WIDTH);
+  startY = clamp_axis(startY, 0, display.height() - CURSOR_HEIGHT);
+
+  cursorX = startX;
+  cursorY = startY;
+  cursorVisible = true;
+  draw_cursor(startX, startY);
+  display.refresh();
+  update_entry_exit_state(millis());
+}
+
+void update_cursor(int dx, int dy) {
+  if (!cursorVisible) return;
+
+  int baseX = (int)cursorX;
+  int baseY = (int)cursorY;
+  int candidateX = baseX;
+  int candidateY = baseY;
+
+  if (dx != 0) {
+    int nextX = clamp_axis(baseX + dx, 0, display.width() - CURSOR_WIDTH);
+    if (!cursor_hits_wall(nextX, baseY)) {
+      candidateX = nextX;
+    }
+  }
+
+  if (dy != 0) {
+    int nextY = clamp_axis(baseY + dy, 0, display.height() - CURSOR_HEIGHT);
+    if (!cursor_hits_wall(candidateX, nextY)) {
+      candidateY = nextY;
+    }else if (candidateX != baseX && !cursor_hits_wall(baseX, nextY)) {
+      candidateX = baseX;
+      candidateY = nextY;
+    }
+  }
+
+  if (candidateX == baseX && candidateY == baseY) return;
+
+  erase_cursor(baseX, baseY);
+  cursorX = candidateX;
+  cursorY = candidateY;
+  draw_cursor(candidateX, candidateY);
+  display.refresh();
+  update_entry_exit_state(millis());
 }
 
 // wrap maze generation logic in one function with seeding (for repeatability) 
@@ -232,4 +424,5 @@ void regenerate_maze(uint32_t seed) {
   if (seed != 0) randomSeed(seed);
   generate_maze();
   draw_maze_sharp();
+  reset_cursor_position();
 }

@@ -3,8 +3,8 @@
 #include "MazeDisplay.h"
 #include "WebManager.h"
 
-bool isNewMaze = true; 
-
+bool isNewMaze = true;
+uint32_t lastFrameMs = 0;
 
 void setup() {
 //CODE FOR SERIAL INITIALIZATION
@@ -21,13 +21,33 @@ void setup() {
   display_initial_maze();
   init_wifi();
   init_webapp();
+  lastFrameMs = millis();
 
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  const uint32_t now = millis(); //track current timestamp
+
+  //sample distance at given interval
+  if (update_distance(now)) {
+    const int d = last_distance_cm();
+    if (d < 0){
+      set_led_mode(LED_OFF, now); // invalid reading need to debug
+    } else if (d <=  DIST_THRESHOLD){ //60cm away triggers screen and led speed
+      set_led_mode(LED_NEAR, now);
+    } else {
+      set_led_mode(LED_FAR, now);
+    }
+  }
+
+  update_led(now);
+
+  if (now - lastFrameMs >= FRAME_MS) {
+    lastFrameMs = now;
+    update_cursor(get_xDirection(), get_yDirection());
+  }
+
   serve_http();
-  manage_LED(true);
 
 }
 

@@ -4,9 +4,6 @@
 #include "ScreenManager.h"
 #include "WebManager.h"
 
-//init time and polling variables
-const uint32_t ACK_DEBOUNCE_MS = 30; //TODO: prevent frequent polling of ack button
-const uint32_t PULL_INTERVAL_MS=5000; //check-in every 5s for lcd screen
 
 
 void setup() {
