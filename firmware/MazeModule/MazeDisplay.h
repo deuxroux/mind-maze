@@ -25,8 +25,11 @@ void draw_maze_sharp();
 void update_cursor(int x, int y);
 
 void regenerate_maze(uint32_t seed = 0);
-size_t maze_cell_count();
-uint8_t *maze_buffer();
-bool apply_maze_cells(const uint8_t *cells, size_t count);
+void display_current_maze();
+void show_instruction_screen(const char *heading, const char *detail);
+void show_completion_screen(uint32_t durationMs, bool sendingNow);
+void set_cursor_graphic_visibility(bool visible);
+bool maze_exit_reached();
+uint32_t maze_exit_time_ms();
 
 #endif

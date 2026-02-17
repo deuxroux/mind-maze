@@ -7,7 +7,7 @@ WiFiServer server(80);
 awot::Application app;
 static StaticJsonDocument<512> inbox; //message for this module
 static bool inboxHasMessage = false;
-static bool mazeActive = false;
+bool mazeActive = false;
 
 static void handle_incoming_maze_command(const JsonDocument &msg);
 
@@ -192,7 +192,6 @@ void pull_message(awot::Request &req, awot::Response &res){
 
   inbox.clear(); //clear inbox
   inboxHasMessage = false;
-  mazeActive = false;
   Serial.println(inboxHasMessage ? "[PULL] had message" : "[PULL] empty");
   json_reply(res, 200, reply);
 }
@@ -274,12 +273,20 @@ void send_test(awot::Request &req, awot::Response &res){
 void send_maze_result(awot::Request &req, awot::Response &res){
   (void)req;
 
-  StaticJsonDocument<256> msg;
+  bool ok = send_maze_result_payload(10000);
+  StaticJsonDocument<256> reply;
+  reply["ok"] = ok;
+  reply["sentBytes"] = 0;
+  reply["peer"] = IPAddress(PEER_IP).toString();
 
-  //placeholder result payload
-  msg["type"] = "maze_result";
-  msg["status"] = "success"; //success/fail/incomplete
-  msg["duration_ms"] = 10000; //stand-in completion time
+  json_reply(res, ok ? 200:500, reply);
+}
+
+bool send_maze_result_payload(uint32_t durationMs) {
+  StaticJsonDocument<256> msg;
+  msg["type"] = "maze_result"; //success/fail/incomplete
+  msg["status"] = "success";
+  msg["duration_ms"] = durationMs;
 
   String body;
   serializeJson(msg, body);
@@ -289,13 +296,7 @@ void send_maze_result(awot::Request &req, awot::Response &res){
   if (ok) {
     mazeActive = false;
   }
-
-  StaticJsonDocument<256> reply;
-  reply["ok"] = ok;
-  reply["sentBytes"] = body.length();
-  reply["peer"] = peer.toString();
-
-  json_reply(res, ok ? 200:500, reply);
+  return ok;
 }
 
 static void handle_incoming_maze_command(const JsonDocument &msg) {

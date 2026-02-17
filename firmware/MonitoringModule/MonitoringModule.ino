@@ -50,7 +50,7 @@ void JSON_to_LCD(const JsonDocument &msg){
       l1 = "Maze: OK";
     }
     if (dur > 0){
-      l2 = "t=" + fmtSeconds(dur);
+      l2 = "t=" + fmt_seconds(dur);
     }else if (status == "incomplete"){
       l2 = "t=?.?s";
     }else{
@@ -69,7 +69,7 @@ void JSON_to_LCD(const JsonDocument &msg){
 
 }
 
-String fmtSeconds(uint32_t ms) {
+String fmt_seconds(uint32_t ms) {
   // convert to X.Y seconds
   uint32_t tenths = ms / 100;
   String s = String(tenths / 10);

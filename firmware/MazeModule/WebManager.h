@@ -7,6 +7,9 @@
 
 
 extern const char DASHBOARD_HTML[] PROGMEM;
+extern bool mazeActive;
+
+bool send_maze_result_payload(uint32_t durationMs);
 
 void init_webapp();
 void init_wifi();

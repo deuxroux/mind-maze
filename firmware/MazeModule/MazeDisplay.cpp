@@ -137,31 +137,8 @@ bool connect_cell(int cell) {
       }
     }
   }
-  // for (int k = 0; k < 2; k++) {
-  //   int which = orders[k];
-
-  //   // which==0 -> right neighbor; which==1 -> bottom neighbor
-  //   if (which == 0) {
-  //     // don't open right edge
-  //     if (GETX(cell) == sizex - 1) continue;
-  //     int n = cell + 1;
-  //     if (mazepath[cell] != mazepath[n]) {
-  //       cell_join(cell, n);
-  //       return true;
-  //     }
-  //   } else {
-  //     // don't open bottom edge
-  //     if (GETY(cell) == sizey - 1) continue;
-  //     int n = cell + sizex;
-  //     if (mazepath[cell] != mazepath[n]) {
-  //       cell_join(cell, n);
-  //       return true;
-  //     }
-  //   }
-  // }
   return false;
 }
-
 
 // Generate maze by repeatedly joining components until complete
 void generate_maze() {
@@ -342,6 +319,7 @@ static inline bool cursor_in_zone(int x, int y, int left, int right, int top, in
   return !(x + CURSOR_WIDTH <= left || x >= right || y + CURSOR_HEIGHT <= top || y >= bottom);
 }
 
+//define entry and exit flags
 static void update_entry_exit_state(uint32_t now) {
   if (hasEntryZone && !hasEnteredMaze &&
       cursor_in_zone((int)cursorX, (int)cursorY, entryZoneLeft, entryZoneRight, entryZoneTop, entryZoneBottom)) {
@@ -355,6 +333,7 @@ static void update_entry_exit_state(uint32_t now) {
   }
 }
 
+//code to adjust position and visibility of cursor
 void reset_cursor_position() {
   if (cursorVisible) {
     erase_cursor((int)cursorX, (int)cursorY);
@@ -423,6 +402,69 @@ void update_cursor(int dx, int dy) {
 void regenerate_maze(uint32_t seed) {
   if (seed != 0) randomSeed(seed);
   generate_maze();
+}
+
+void display_current_maze() {
   draw_maze_sharp();
   reset_cursor_position();
+}
+
+void set_cursor_graphic_visibility(bool visible) {
+  if (visible && !cursorVisible && cursorX <= display.width() && cursorY <= display.height()) {
+    draw_cursor((int)cursorX, (int)cursorY);
+    cursorVisible = true;
+    display.refresh();
+    return;
+  }
+  if (!visible && cursorVisible) {
+    erase_cursor((int)cursorX, (int)cursorY);
+    cursorVisible = false;
+    display.refresh();
+  }
+}
+
+static void draw_wrapped_text(int x, int y, int size, const char *text) {
+  display.setTextSize(size);
+  display.setCursor(x, y);
+  display.print(text);
+}
+
+void show_instruction_screen(const char *heading, const char *detail) {
+  display.clearDisplay();
+  display.setTextColor(BLACK);
+  const int xMargin = 8; //defines padding
+  const int yMargin = 48;
+  draw_wrapped_text(xMargin, yMargin, 3, heading);
+  display.setTextSize(1);
+  draw_wrapped_text(xMargin, yMargin + 60, 2, detail);
+  display.refresh();
+}
+
+void show_completion_screen(uint32_t durationMs, bool sendingNow) {
+  uint32_t tenths = durationMs / 100;
+  String detail = String(tenths / 10);
+  detail += ".";
+  detail += String(tenths % 10);
+  detail += "s";
+  display.clearDisplay();
+  display.setTextColor(BLACK);
+  const int margin = 8;
+  draw_wrapped_text(margin, margin, 3, "Maze Complete!");
+  display.setTextSize(1);
+  draw_wrapped_text(margin, margin + 60, 2, detail.c_str()); //expects char so cast as c_str
+  if (sendingNow) {
+    draw_wrapped_text(margin, margin + 90, 2, "Sending results to monitor");
+  } else {
+    draw_wrapped_text(margin, margin + 90, 2, "Results will be sent shortly");
+  }
+  display.refresh();
+}
+
+bool maze_exit_reached() {
+  return hasExitedMaze;//accessor for this var
+}
+
+uint32_t maze_exit_time_ms() {
+  if (!hasExitedMaze || mazeExitMs <= mazeEnterMs) return 0;
+  return mazeExitMs - mazeEnterMs;
 }

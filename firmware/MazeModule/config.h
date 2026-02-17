@@ -12,7 +12,7 @@ constexpr int JOYSTICK_CENTER = 512;
 constexpr int DEADZONE = 40; //drift in the joystick-- will adjust to plus or minus deadzone. 
 constexpr int CURSOR_WIDTH=8;
 constexpr int CURSOR_HEIGHT=8;
-constexpr int MAX_STEP = 4; //4 pixel per frame for readability
+constexpr int MAX_STEP = 8; // pixel per frame max speed
 constexpr uint16_t FRAME_MS = 33;  // ~30 Hz refresh
 
 // Sharp Memory Display Pins

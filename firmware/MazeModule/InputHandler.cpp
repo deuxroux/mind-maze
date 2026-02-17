@@ -16,13 +16,13 @@ struct LedPattern {
   uint8_t count;
 };
 
-//define the on-off patterns
-const uint16_t PATTERN_FAR[]  = { 200, 800 };  // ON 200, OFF 800
-const uint16_t PATTERN_NEAR[] = { 100, 100, 100, 700 }; //ON 100, OFF 100, ON 100, OFF 700
-const LedPattern P_FAR  = { PATTERN_FAR,  2 };
-const LedPattern P_NEAR = { PATTERN_NEAR, 4 };
+//define the on-off patterns for the far (no-one nearby) states
+const uint16_t PATTERN_READY_FAR[]     = { 100, 100, 100, 700}; // faster blink for ready 
+const uint16_t PATTERN_NOT_READY_FAR[] = { 100, 900};           // slow polling notif
+const LedPattern P_READY_FAR      = { PATTERN_READY_FAR, 4};
+const LedPattern P_NOT_READY_FAR  = { PATTERN_NOT_READY_FAR, 2};
 
-static LedMode ledMode = LED_OFF;
+static LedMode ledMode = LED_NOT_READY_NEAR;
 static uint8_t ledStep = 0;
 static bool ledOn = false;
 static uint32_t ledStepStartMs = 0;
@@ -51,19 +51,32 @@ void set_led_mode(LedMode m, uint32_t nowMs) {
   ledStep = 0;
   ledOn = false;
   ledStepStartMs = nowMs;
-  digitalWrite(PIN_LED, LOW);
+  if (m == LED_READY_NEAR) {
+    digitalWrite(PIN_LED, HIGH); //const on
+  } else {
+    digitalWrite(PIN_LED, LOW); // will go to blink pattern in function call stack
+  }
 }
 
 //switch case to define pattern based on input by checking ledMode
 const LedPattern* current_pattern() {
   switch (ledMode) {
-    case LED_NEAR: return &P_NEAR;
-    case LED_FAR:  return &P_FAR;
-    default:       return nullptr;
+    case LED_READY_FAR: return &P_READY_FAR;
+    case LED_NOT_READY_FAR: return &P_NOT_READY_FAR;
+    default: return nullptr; //nothing if not clarified. 
   }
 }
 
 void update_led(uint32_t nowMs) {
+  if (ledMode == LED_READY_NEAR) {
+    digitalWrite(PIN_LED, HIGH);
+    return;
+  }
+  if (ledMode == LED_NOT_READY_NEAR) {
+    digitalWrite(PIN_LED, LOW);
+    return;
+  }
+
   const LedPattern* p = current_pattern();
   if (!p) {
     digitalWrite(PIN_LED, LOW);
@@ -73,7 +86,7 @@ void update_led(uint32_t nowMs) {
   uint16_t dur = p->stepsMs[ledStep];
   if (nowMs - ledStepStartMs < dur) return;
 
-  // advance to next step based on time prog
+  // advance to next step based on time pattern
   ledStepStartMs = nowMs;
   ledStep = (ledStep + 1) % p->count;
 
@@ -81,7 +94,7 @@ void update_led(uint32_t nowMs) {
   digitalWrite(PIN_LED, ledOn ? HIGH : LOW);
 }
 
-//convert joystick raw input -> step to move
+//convert from joystick raw input to move step size
 static int joyToStep(int raw, bool invert) {
   int d = raw - JOYSTICK_CENTER;
   if (d > -DEADZONE && d < DEADZONE) return 0;
