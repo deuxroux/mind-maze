@@ -13,8 +13,8 @@ constexpr uint32_t PULL_INTERVAL_MS=5000; //check-in every 5s for lcd screen
 
 //ARGB pins
 #define RED_LED_PIN D2
-#define GREEN_LED_PIN D3
-#define BLUE_LED_PIN D4
+#define BLUE_LED_PIN D3
+#define GREEN_LED_PIN D4
 
 
 //ultrasonic pins

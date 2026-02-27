@@ -20,23 +20,25 @@ R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-  <title> Physician's Monitoring Dashboard</title>
+  <title> Monitoring Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: sans-serif; }
   </style>
 </head>
 <body>
-  <h1>Physician's Monitoring Dashboard</h1>
+  <h1>Monitoring Dashboard</h1>
 <div>
   <h2>Actions</h2>
   <button id="requestMazeBtn">Send New Maze</button>
+  <button id="ackBtn">Acknowledge Result</button>
   <div id="requestMazeStatus"></div>
 </div>
 
 <div>
   <h2>Status</h2>
   <div id="mazeStatus">No Maze Issued</div>
+  <div id ="instruction">Assign Maze in Actions section above. </div>
 </div>
 
 <div>
@@ -51,17 +53,41 @@ R"rawliteral(
 </body>
 <script>
   const btn = document.getElementById("requestMazeBtn");
+  const ackBtn = document.getElementById("ackBtn");
   const statusEl = document.getElementById("requestMazeStatus");
   const state = document.getElementById("mazeStatus");
+  const instruction = document.getElementById("instruction")
 
   btn.addEventListener("click", async () => {
     statusEl.textContent = "Sending request...";
     try {
       const res = await fetch("/api/request_maze", { method: "POST" });
       const data = await res.json();
-      statusEl.textContent = data.ok ? "Request sent" : "Request failed";
+      if(data.ok){
+        statusEl.textContent = "Request Sent. Maze Active";
+        instruction.textContent = "Maze Assignment Sent. Wait for Results";
+      }else{
+        statusEl.textContent = "Request failed";
+      }
+      
     } catch (e) {
       statusEl.textContent = "Request failed";
+    }
+  });
+
+  ackBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/api/ack");
+      const data = await res.json();
+      if (data.ok) {
+        instruction.textContent = "Inbox cleared.";
+        statusEl.innerText="";
+        if (!data.unread) {
+          state.innerText = "No Result Yet";
+        }
+      }
+    } catch (e) {
+      instruction.textContent = "Ack failed";
     }
   });
 
@@ -70,9 +96,13 @@ R"rawliteral(
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
 
-    state.innerText = json.message
-      ? JSON.stringify(json.message, null, 2)
-      : "No Result Yet";
+    if(json.message){
+      state.innerText = JSON.stringify(json.message, null, 2);
+      statusEl.innerText = "result received!";
+      instruction.innerText = "Acknowledge with pushbutton or in actions to clear and send new Maze.";
+    } else{
+      state.innerText = "No Result Yet"
+    }
   }
   setInterval(refresh, 5000);
 </script>
@@ -127,7 +157,7 @@ void init_wifi(){
     delay(500);
     Serial.println("Waiting to connect...");
   }
-  Serial.print("[WiFi] Monitoring Physician Module Connected! IP Address: ");
+  Serial.print("[WiFi] Monitoring Module Connected! IP Address: ");
   Serial.println(WiFi.localIP());
 //END CODE FOR WIFI INIT
 }
@@ -146,7 +176,7 @@ void serve_http(){
 
 //p2p route functions
 void push_message(awot::Request &req, awot::Response &res){
-  Serial.println("[PUSH] handler hit for physician mod");
+  Serial.println("[PUSH] handler hit for monitoring mod");
 
   //clear inbox just in case not cleared already
   inbox.clear();

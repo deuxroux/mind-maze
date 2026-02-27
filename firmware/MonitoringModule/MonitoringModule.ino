@@ -4,6 +4,9 @@
 #include "ScreenManager.h"
 #include "WebManager.h"
 
+static bool lastInboxUnread = false;
+
+static void sync_inbox_led_state();
 
 
 void setup() {
@@ -25,9 +28,10 @@ void setup() {
 
 void loop() {
   serve_http();
-  get_dist_and_notify();
+  update_led_controller(millis());
   poll_peer();
   handle_ack_button();
+  sync_inbox_led_state();
 }
 
 void JSON_to_LCD(const JsonDocument &msg){
@@ -59,6 +63,7 @@ void JSON_to_LCD(const JsonDocument &msg){
     //todo: add maze id? tbd if mportant here.
     update_screen(l1,l2);
     mazeAwaiting = false;
+    set_maze_result_state(true, dur);
     return;
   }
   //test payload case
@@ -89,7 +94,7 @@ void poll_peer(){
     bool ok = pull_local_message(msg, empty);
     if (!empty) {
       JSON_to_LCD(msg);
-      Serial.println("[PULL] new message rendered to LCD");
+      //Serial.println("[PULL] new message rendered to LCD");
       return;
     } else {
       update_screen("AWAITING", "No Result Yet");
@@ -103,4 +108,11 @@ void handle_ack_button() {
     Serial.println("Ack button pressed");
     clear_inbox_state();
   }
+}
+
+static void sync_inbox_led_state() {
+  if (lastInboxUnread && !inboxUnread) {
+    set_maze_result_state(false, 0);
+  }
+  lastInboxUnread = inboxUnread;
 }
