@@ -28,6 +28,7 @@ void setup() {
 
 void loop() {
   serve_http();
+  render_inbox_if_pending(); 
   update_led_controller(millis());
   poll_peer();
   handle_ack_button();
@@ -85,21 +86,27 @@ String fmt_seconds(uint32_t ms) {
 }
 
 void poll_peer(){
-  uint32_t lastPull = 0;
-  bool empty = true;
-  if (millis() - lastPull >= PULL_INTERVAL_MS) {
-    lastPull = millis();
-  
-    StaticJsonDocument<512> msg;
-    bool ok = pull_local_message(msg, empty);
-    if (!empty) {
-      JSON_to_LCD(msg);
-      //Serial.println("[PULL] new message rendered to LCD");
-      return;
-    } else {
-      update_screen("AWAITING", "No Result Yet");
-    }
+  static uint32_t lastPull = 0;
+
+  if (millis() - lastPull < PULL_INTERVAL_MS) return;
+  lastPull = millis();
+
+  if (inboxRenderPending) return;
+  if (inboxUnread) return;
+
+  if (mazeAwaiting) {
+    if (inboxUnread) return;
+    update_screen("AWAITING", "No Result Yet");
+  } else { 
+    update_screen("READY", "Send New Maze");
   }
+
+  Serial.print("[POLL] mazeAwaiting=");
+  Serial.print(mazeAwaiting);
+  Serial.print(" inboxUnread=");
+  Serial.print(inboxUnread);
+  Serial.print(" pending=");
+  Serial.println(inboxRenderPending);
 }
 
 void handle_ack_button() {
@@ -115,4 +122,17 @@ static void sync_inbox_led_state() {
     set_maze_result_state(false, 0);
   }
   lastInboxUnread = inboxUnread;
+}
+
+static void render_inbox_if_pending() {
+  if (!inboxRenderPending) return;
+
+  StaticJsonDocument<512> msg;
+  bool empty = true;
+  bool ok = pull_local_message(msg, empty);
+
+  if (ok && !empty) {
+    JSON_to_LCD(msg);
+    inboxRenderPending = false;
+  }
 }

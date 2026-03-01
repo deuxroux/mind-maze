@@ -20,25 +20,25 @@ R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-  <title> Patient's Diagnostic Maze Device Dashboard</title>
+  <title> Maze Device Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: sans-serif; }
   </style>
 </head>
 <body>
-  <h1>Patient's Diagnostic Maze Device Dashboard</h1>
+  <h1>Maze Device Dashboard</h1>
   <div id="status">No Maze Active</div>
 
   <div>
   <h2>API endpoints</h2>
-  <a href="/api/send">Send JSON (TEST) to physician monitoring module</a>
+  <a href="/api/send">Send JSON (TEST) to monitoring module</a>
   <br>
-  <a href="/api/send_result">Send Maze Result to physician monitoring module</a>
+  <a href="/api/send_result">Send Maze Result to monitoring module</a>
   <br>
   <a href="/api/status">Get maze status</a>
   <br>
-  <a href="/api/pull">Check inbox (json) from physician monitoring module</a>
+  <a href="/api/pull">Check inbox (json) from monitoring module</a>
   <br>
   <a href="/api/push">receive maze request</a>
   </div>
@@ -227,8 +227,10 @@ bool post_json_to_peer(const IPAddress &peer, uint16_t port, const char *path, c
 
   //get time and wait until timeout. afterwards fail gracefully if no client connection
   uint32_t start = millis();
-  while (!c.available() && (millis() - start) < 3000) { delay(1); }
-
+  while (!c.available() && (millis() - start) < 750) {
+    delay(1);
+  }
+  
   if (!c.available()) {
     c.stop();
     return false;

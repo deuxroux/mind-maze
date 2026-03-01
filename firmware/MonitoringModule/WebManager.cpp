@@ -8,6 +8,7 @@ static StaticJsonDocument<512> inbox; //message for this module-- a one message 
 static bool inboxHasMessage = false;
 bool inboxUnread = false;
 bool mazeAwaiting = false;
+bool inboxRenderPending = false;
 static uint32_t mazeSeedCounter = 0; //every new maze request increments this counter. 
 
 char ssid[] = SECRET_SSID;
@@ -167,8 +168,9 @@ void serve_http(){
   //Serve HTTP LOGIC REPEATEDLY
   WiFiClient client = server.available();
   if (client) {
-    client.setTimeout(1500);
+    client.setTimeout(500);
     app.process(&client); 
+    delay(1); 
     client.stop();
   }
 //END Http logic
@@ -194,11 +196,14 @@ void push_message(awot::Request &req, awot::Response &res){
     reply["error"] = "BAD_JSON";
     reply["detail"] = err.c_str();
     json_reply(res, 400, reply);
+    Serial.println("[PUSH] error in pushing message");
     return; //break and do not continue
   }
 
   inboxHasMessage = true;
   inboxUnread = true;
+  inboxRenderPending = true;
+  Serial.println("[PUSH] flags set");
 
   reply["ok"] = true;
   reply["storedBytes"] = measureJson(inbox); //check length of message for safety checks
@@ -262,8 +267,9 @@ bool post_json_to_peer(const IPAddress &peer, uint16_t port, const char *path, c
 
   //get time and wait until timeout. afterwards fail gracefully if no client connection
   uint32_t start = millis();
-  while (!c.available() && (millis() - start) < 3000) { delay(1); }
-
+  while (!c.available() && (millis() - start) < 750) {
+    delay(1);
+  }
   if (!c.available()) {
     c.stop();
     return false;
@@ -338,11 +344,9 @@ bool pull_local_message(JsonDocument &outMsg, bool &outEmpty) {
 
   if (!inboxHasMessage) {
     outEmpty = true;
-    inboxUnread = true;
     return true;
   }
   outMsg.set(inbox);
-
   outEmpty = false;
   return true;
 }
@@ -351,4 +355,5 @@ void clear_inbox_state() {
   inbox.clear();
   inboxHasMessage = false;
   inboxUnread = false; //mark read
+  inboxRenderPending = false;
 }

@@ -8,6 +8,7 @@
 extern const char DASHBOARD_HTML[] PROGMEM;
 extern bool inboxUnread;
 extern bool mazeAwaiting;
+extern bool inboxRenderPending;
 
 void init_webapp();
 void init_wifi();
